@@ -3,14 +3,17 @@ FROM php:8.2-apache
 # Install MySQL  extensions
 RUN docker-php-ext-install mysqli pdo pdo_mysql
 
-# Enable rewrite and ensure only prefork MPM is active
-RUN a2enmod rewrite \
- && a2dismod mpm_event mpm_worker || true
+# Enable rewrite
+RUN a2enmod rewrite
 
 WORKDIR /var/www/html
 COPY . .
 
 RUN chown -R www-data:www-data /var/www/html
 
+# Use custom entrypoint to ensure only one MPM is loaded on Railway
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
-CMD ["apache2-foreground"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
