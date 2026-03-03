@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install MySQL extensions
+# Install MySQL  extensions
 RUN docker-php-ext-install mysqli pdo pdo_mysql
 
 # Enable rewrite and ensure only prefork MPM is active
