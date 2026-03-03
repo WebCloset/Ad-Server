@@ -1429,8 +1429,49 @@ function unlinkbetter($s) {
  * @return void
  */
 function renamebetter($from, $to) {
-	rename($from,$to);
-	if(file_exists($from)) {trigger_error( "Can't rename folder $from in folter $to. Fix permission or rename manually."); die; };
+	// On some hosts (like Railway) folders can live on different
+	// filesystems/volumes and PHP rename() between them fails with
+	// "Invalid cross-device link". In that case we try a best-effort
+	// copy+delete instead of stopping the whole app.
+	if (@rename($from, $to)) {
+		return;
+	}
+
+	// If source still exists, attempt a recursive copy then remove source.
+	if (is_dir($from)) {
+		// Ensure destination directory exists
+		if (!is_dir($to)) {
+			@mkdir($to, 0755, true);
+		}
+
+		$dir = opendir($from);
+		if ($dir !== false) {
+			while (false !== ($file = readdir($dir))) {
+				if ($file === '.' || $file === '..') {
+					continue;
+				}
+				$srcPath = $from . DIRECTORY_SEPARATOR . $file;
+				$dstPath = $to . DIRECTORY_SEPARATOR . $file;
+
+				if (is_dir($srcPath)) {
+					renamebetter($srcPath, $dstPath);
+				} else {
+					@copy($srcPath, $dstPath);
+				}
+			}
+			closedir($dir);
+		}
+
+		// Remove original directory tree
+		rrmdir($from);
+	} else {
+		// Fallback for regular files: try copy+unlink.
+		if (@copy($from, $to)) {
+			@unlink($from);
+		} else {
+			trigger_error("Can't move $from to $to. Fix permission or move manually.");
+		}
+	}
 }
 
 /**
